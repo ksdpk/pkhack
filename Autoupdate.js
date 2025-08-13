@@ -13,7 +13,12 @@
 
     function waitForGameLoad(callback) {
         const checkInterval = setInterval(() => {
-            if (typeof App !== 'undefined' && App.game && App.game.party?.gainPokemonById && App.game.wallet) {
+            if (
+                typeof App !== 'undefined' &&
+                App.game &&
+                typeof App.game.party?.gainPokemonById === 'function' &&
+                App.game.wallet
+            ) {
                 clearInterval(checkInterval);
                 callback();
             }
@@ -35,6 +40,16 @@
         container.style.maxHeight = "90vh";
         container.style.overflowY = "auto";
 
+        // สร้าง UI สำหรับ Spawner
+        let html = `
+            <h4 style="margin:0 0 5px 0; font-size:16px;">🐉 Pokemon Spawner</h4>
+            <label>ID (0-898):</label>
+            <input type="number" id="pokeId" value="140" min="0" max="898" style="width:100%; margin-bottom:5px;">
+            <label><input type="checkbox" id="pokeShiny"> Shiny</label><br>
+            <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">เสกโปเกมอน</button>
+        `;
+
+        // สร้าง UI สำหรับ Currency Adder
         let currencyOptions = currencies.map((c, i) => `
             <div class="currency-option" data-index="${i}" style="display:flex;align-items:center;padding:5px;cursor:pointer;">
                 <img src="${c.icon}" style="width:20px;height:20px;margin-right:8px;">
@@ -42,13 +57,7 @@
             </div>
         `).join('');
 
-        container.innerHTML = `
-            <h4 style="margin:0 0 5px 0; font-size:16px;">🐉 Pokemon Spawner</h4>
-            <label>ID (0-898):</label>
-            <input type="number" id="pokeId" value="140" min="0" max="898" style="width:100%; margin-bottom:5px;">
-            <label><input type="checkbox" id="pokeShiny"> Shiny</label><br>
-            <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">เสกโปเกมอน</button>
-
+        html += `
             <h4 style="margin:10px 0 5px 0;font-size:16px;">💰 Currency Adder</h4>
             <div id="currencyList" style="border:1px solid #888;margin-bottom:5px;max-height:120px;overflow-y:auto;">
                 ${currencyOptions}
@@ -58,9 +67,10 @@
             <button id="addCurrency" style="width:100%;">เพิ่ม</button>
         `;
 
+        container.innerHTML = html;
         document.body.appendChild(container);
 
-        // Pokemon Spawner click
+        // Event: เสกโปเกมอน
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const id = parseInt(document.getElementById("pokeId").value);
             const shiny = document.getElementById("pokeShiny").checked;
@@ -72,7 +82,7 @@
             }
         });
 
-        // Currency Adder click
+        // Event: เลือกสกุลเงิน
         let selectedIndex = 0;
         document.querySelectorAll("#currencyList .currency-option").forEach(opt => {
             opt.addEventListener("click", function () {
@@ -82,6 +92,7 @@
             });
         });
 
+        // Event: เพิ่มเงิน/แต้ม
         document.getElementById("addCurrency").addEventListener("click", () => {
             const c = currencies[selectedIndex];
             const amount = parseInt(document.getElementById("currencyAmount").value) || 0;
