@@ -2,13 +2,13 @@
     'use strict';
 
     const currencies = [
-        { name: "Pokédollars", method: amount => App.game.wallet.gainMoney(amount), current: () => App.game.wallet.money(), icon: "https://www.pokeclicker.com/assets/images/currency/money.svg" },
-        { name: "Dungeon Tokens", method: amount => App.game.wallet.gainDungeonTokens(amount), current: () => App.game.wallet.dungeonTokens(), icon: "https://www.pokeclicker.com/assets/images/currency/dungeonToken.svg" },
-        { name: "Quest Points", method: amount => App.game.wallet.gainQuestPoints(amount), current: () => App.game.wallet.questPoints(), icon: "https://www.pokeclicker.com/assets/images/currency/questPoint.svg" },
-        { name: "Farm Points", method: amount => App.game.farming.gainFarmPoints(amount), current: () => App.game.farming.farmPoints, icon: "https://www.pokeclicker.com/assets/images/currency/farmPoint.svg" },
-        { name: "Diamonds", method: amount => App.game.wallet.gainDiamonds(amount), current: () => App.game.wallet.diamonds(), icon: "https://www.pokeclicker.com/assets/images/currency/diamond.svg" },
-        { name: "Battle Points", method: amount => App.game.wallet.gainBattlePoints(amount), current: () => App.game.wallet.battlePoints(), icon: "https://www.pokeclicker.com/assets/images/currency/battlePoint.svg" },
-        { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount), current: () => App.game.wallet.contestTokens(), icon: "https://www.pokeclicker.com/assets/images/currency/contestToken.svg" },
+        { name: "Pokédollars", method: amount => App.game.wallet.gainMoney(amount), icon: "https://www.pokeclicker.com/assets/images/currency/money.svg" },
+        { name: "Dungeon Tokens", method: amount => App.game.wallet.gainDungeonTokens(amount), icon: "https://www.pokeclicker.com/assets/images/currency/dungeonToken.svg" },
+        { name: "Quest Points", method: amount => App.game.wallet.gainQuestPoints(amount), icon: "https://www.pokeclicker.com/assets/images/currency/questPoint.svg" },
+        { name: "Farm Points", method: amount => App.game.wallet.gainFarmPoints(amount), icon: "https://www.pokeclicker.com/assets/images/currency/farmPoint.svg" },
+        { name: "Diamonds", method: amount => App.game.wallet.gainDiamonds(amount), icon: "https://www.pokeclicker.com/assets/images/currency/diamond.svg" },
+        { name: "Battle Points", method: amount => App.game.wallet.gainBattlePoints(amount), icon: "https://www.pokeclicker.com/assets/images/currency/battlePoint.svg" },
+        { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount), icon: "https://www.pokeclicker.com/assets/images/currency/contestToken.svg" },
     ];
 
     const evoItems = [
@@ -59,8 +59,8 @@
 
         let html = `
             <h4 style="margin:0 0 5px 0; font-size:16px;">🐉 Pokemon Spawner</h4>
-            <label>ID (0-898):</label>
-            <input type="number" id="pokeId" value="140" min="0" max="898" style="width:100%; margin-bottom:5px;">
+            <label>ID (1-898):</label>
+            <input type="number" id="pokeId" value="1" min="1" max="898" style="width:100%; margin-bottom:5px;">
             <label><input type="checkbox" id="pokeShiny"> Shiny</label><br>
             <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">เสกโปเกมอน</button>
         `;
@@ -100,11 +100,11 @@
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const id = parseInt(document.getElementById("pokeId").value);
             const shiny = document.getElementById("pokeShiny").checked;
-            if (id >= 0 && id <= 898) {
+            if (id >= 1 && id <= 898) {
                 App.game.party.gainPokemonById(id, shiny);
                 notify(`✅ เสกโปเกมอน ID ${id} (${shiny ? '✨ Shiny' : 'ปกติ'})`);
             } else {
-                notify(`❌ ID ต้องอยู่ระหว่าง 0-898`);
+                notify(`❌ ID ต้องอยู่ระหว่าง 1-898`);
             }
         });
 
@@ -124,7 +124,7 @@
             const amount = parseInt(document.getElementById("currencyAmount").value) || 0;
             if (amount > 0) {
                 c.method(amount);
-                notify(`✅ เพิ่ม ${c.name} +${amount} (ตอนนี้: ${c.current()})`);
+                notify(`✅ เพิ่ม ${c.name} +${amount}`);
             }
         });
 
