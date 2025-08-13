@@ -1,8 +1,15 @@
 (function () {
     'use strict';
 
+    const SCRIPT_NAME = "Pokéclicker Helper";
+    const VERSION = "1.4.2"; // ลบ Evolution Items ออก
+
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
+
+    // ใช้สำหรับ autocomplete / ค้นหาแบบไม่เคร่งตัวพิมพ์
+    let itemIndex = new Map();
+    let itemListReady = false;
 
     const currencies = [
         { name: "Pokédollars", method: amount => App.game.wallet.gainMoney(amount) },
@@ -12,22 +19,6 @@
         { name: "Diamonds", method: amount => App.game.wallet.gainDiamonds(amount) },
         { name: "Battle Points", method: amount => App.game.wallet.gainBattlePoints(amount) },
         { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount) },
-    ];
-
-    const evoItems = [
-        "Auspicious_armor", "Black_augurite", "Black_DNA", "Black_mane_hair",
-        "Cracked_pot", "Crystallized_shadow", "Dawn_stone", "Deep_sea_scale",
-        "Deep_sea_tooth", "Dragon_scale", "Dubious_disc", "Dusk_stone",
-        "Electirizer", "Fire_stone", "Galarica_cuff", "Galarica_wreath",
-        "Gimmighoul_coin", "Ice_stone", "Key_stone", "Kings_rock",
-        "Leaders_crest", "Leaf_stone", "Linking_cord", "Lunar_light",
-        "Magmarizer", "Malicious_armor", "Metal_alloy", "Metal_coat",
-        "Moon_stone", "Peat_block", "Prism_scale", "Protector",
-        "Pure_light", "Razor_claw", "Razor_fang", "Reaper_cloth",
-        "Sachet", "Shiny_stone", "Solar_light", "Soothe_bell",
-        "Sun_stone", "Sweet_apple", "Syrupy_apple", "Tart_apple",
-        "Thunder_stone", "Unremarkable_teacup", "Upgrade", "Water_stone",
-        "Whipped_dream", "White_DNA", "White_mane_hair"
     ];
 
     function waitForGameLoad(onReady) {
@@ -41,9 +32,36 @@
             ) {
                 clearInterval(t);
                 gameReady = true;
+                buildItemIndex();
                 onReady?.();
             }
         }, 500);
+    }
+
+    function buildItemIndex() {
+        try {
+            itemIndex.clear();
+            const keys = Object.keys(ItemList || {});
+            for (const k of keys) {
+                const norm = normalizeKey(k).toLowerCase();
+                if (!itemIndex.has(norm)) itemIndex.set(norm, k);
+            }
+            itemListReady = true;
+        } catch (e) {
+            console.warn("buildItemIndex error:", e);
+            itemListReady = false;
+        }
+    }
+
+    function normalizeKey(s) {
+        return String(s || '').trim().replace(/\s+/g, '_');
+    }
+
+    function resolveItemKey(inputName) {
+        const norm = normalizeKey(inputName).toLowerCase();
+        if (itemIndex.has(norm)) return itemIndex.get(norm);
+        if (ItemList[normalizeKey(inputName)]) return normalizeKey(inputName);
+        return null;
     }
 
     function createUI() {
@@ -62,7 +80,7 @@
             borderRadius: "8px",
             color: "#fff",
             fontSize: "14px",
-            width: "260px",
+            width: "280px",
             maxHeight: "90vh",
             overflowY: "auto",
             boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
@@ -70,11 +88,17 @@
         });
 
         let html = `
-            <h4 style="margin:0 0 5px 0; font-size:16px;">🐉 Pokemon Spawner</h4>
+            <h4 style="margin:0 0 5px 0; font-size:16px;">
+                🐉 ${SCRIPT_NAME} <span style="opacity:.7;font-size:12px;">v${VERSION}</span>
+            </h4>
             <label>ID (1-898):</label>
             <input type="number" id="pokeId" value="1" min="1" max="898" style="width:100%; margin-bottom:5px;">
-            <label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" id="pokeShiny"> Shiny</label><br>
-            <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">เสกโปเกมอน</button>
+            <label style="display:inline-flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="pokeShiny"> Shiny
+            </label><br>
+            <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">
+                เสกโปเกมอน
+            </button>
         `;
 
         html += `
@@ -89,19 +113,34 @@
         `;
 
         html += `
-            <h4 style="margin:10px 0 5px 0;font-size:16px;">🪄 Evolution Items</h4>
-            <label>เลือกไอเท็ม:</label>
-            <select id="evoSelect" style="width:100%;margin-bottom:5px;">
-                ${evoItems.map(i => `<option value="${i}">${i.replace(/_/g, ' ')}</option>`).join('')}
-            </select>
+            <h4 style="margin:10px 0 5px 0;font-size:16px;">📦 ไอเท็มอื่น ๆ</h4>
+            <label>พิมพ์ชื่อไอเท็ม (auto-complete):</label>
+            <input id="customItemName" list="itemNameInputList" placeholder="เช่น Rare Candy หรือ Rare_Candy" style="width:100%;margin-bottom:5px;">
+            <datalist id="itemNameInputList"></datalist>
             <label>จำนวน:</label>
-            <input type="number" id="evoAmount" value="1" min="1" style="width:100%;margin-bottom:5px;">
-            <button id="addEvoItem" style="width:100%;">เพิ่มไอเท็ม</button>
-            <div style="opacity:.7;margin-top:8px;font-size:12px;">กด <b>Insert</b> เพื่อแสดง/ซ่อนเครื่องมือนี้</div>
+            <input type="number" id="customItemAmount" value="1" min="1" style="width:100%;margin-bottom:5px;">
+            <button id="addCustomItem" style="width:100%;">เพิ่มไอเท็ม</button>
+
+            <div style="opacity:.7;margin-top:8px;font-size:12px;">
+                กด <b>Insert</b> เพื่อแสดง/ซ่อนเครื่องมือนี้
+            </div>
         `;
 
         container.innerHTML = html;
         document.body.appendChild(container);
+
+        if (itemListReady) {
+            const dl = document.getElementById('itemNameInputList');
+            if (dl) {
+                dl.innerHTML = '';
+                const allKeys = Array.from(itemIndex.values()).sort();
+                for (const k of allKeys) {
+                    const opt = document.createElement('option');
+                    opt.value = k.replace(/_/g, ' ');
+                    dl.appendChild(opt);
+                }
+            }
+        }
 
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const id = parseInt(document.getElementById("pokeId").value);
@@ -115,7 +154,7 @@
         });
 
         document.getElementById("addCurrency").addEventListener("click", () => {
-            const sel = /** @type {HTMLSelectElement} */(document.getElementById("currencySelect"));
+            const sel = document.getElementById("currencySelect");
             const idx = parseInt(sel.value) || 0;
             const c = currencies[idx];
             const amount = parseInt(document.getElementById("currencyAmount").value) || 0;
@@ -125,18 +164,45 @@
             }
         });
 
-        document.getElementById("addEvoItem").addEventListener("click", () => {
-            const itemName = document.getElementById("evoSelect").value;
-            const amount = parseInt(document.getElementById("evoAmount").value) || 1;
-            if (ItemList[itemName] && typeof ItemList[itemName].gain === 'function') {
-                ItemList[itemName].gain(amount);
-                notify(`🪄 เพิ่ม ${itemName.replace(/_/g, ' ')} ×${amount}`);
-            } else {
-                notify(`⚠️ ไม่พบไอเท็ม: ${itemName}`);
+        const customNameEl = document.getElementById("customItemName");
+        const customAmtEl  = document.getElementById("customItemAmount");
+        const addCustomBtn = document.getElementById("addCustomItem");
+
+        function addCustom() {
+            const itemName = (customNameEl.value || '').trim();
+            const amount = parseInt(customAmtEl.value) || 1;
+            if (!itemName) {
+                notify("⚠️ ใส่ชื่อไอเท็มก่อนนะ");
+                return;
+            }
+            gainItemByName(itemName, amount, "📦");
+        }
+
+        addCustomBtn.addEventListener("click", addCustom);
+        customNameEl.addEventListener("keydown", (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCustom();
+            }
+        });
+        customAmtEl.addEventListener("keydown", (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCustom();
             }
         });
 
         return container;
+    }
+
+    function gainItemByName(inputName, amount, icon = "🎁") {
+        const key = resolveItemKey(inputName);
+        if (key && ItemList[key] && typeof ItemList[key].gain === 'function') {
+            ItemList[key].gain(amount);
+            notify(`${icon} เพิ่ม ${key.replace(/_/g, ' ')} ×${amount}`);
+        } else {
+            notify(`⚠️ ไม่พบไอเท็ม: ${inputName}`);
+        }
     }
 
     function removeUI() {
@@ -168,7 +234,9 @@
         }
     }
 
-    waitForGameLoad();
+    waitForGameLoad(() => {
+        notify(`✅ ${SCRIPT_NAME} v${VERSION} พร้อมใช้งาน — กด Insert เพื่อเปิด/ปิด`);
+    });
 
     document.addEventListener('keydown', (e) => {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
@@ -179,8 +247,5 @@
             toggleUI();
         }
     });
-
-    // (ออปชัน) ถ้าอยากให้เปิดทันทีครั้งแรก ให้ uncomment บรรทัดด้านล่าง:
-    // waitForGameLoad(() => createUI());
 
 })();
