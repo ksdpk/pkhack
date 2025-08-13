@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.2"; // ลบ Evolution Items ออก
+    const VERSION = "1.4.3"; // เพิ่ม ลดยะระเวลาในการจับโปเกมอน
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -28,6 +28,7 @@
                 App.game &&
                 typeof App.game.party?.gainPokemonById === 'function' &&
                 App.game.wallet &&
+                App.game.pokeballs &&
                 typeof ItemList !== 'undefined'
             ) {
                 clearInterval(t);
@@ -236,6 +237,7 @@
 
     waitForGameLoad(() => {
         notify(`✅ ${SCRIPT_NAME} v${VERSION} พร้อมใช้งาน — กด Insert เพื่อเปิด/ปิด`);
+        App.game.pokeballs.pokeballs.forEach(ball => ball.catchTime = 10);
     });
 
     document.addEventListener('keydown', (e) => {
