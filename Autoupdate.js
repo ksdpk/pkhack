@@ -1,15 +1,3 @@
-// ==UserScript==
-// @name         Pokeclicker Pokemon Spawner
-// @namespace    http://tampermonkey.net/
-// @version      2025-08-11
-// @description  UI เสกโปเกมอน ID 0–898 + เลือก Shiny หรือไม่
-// @author       KSDPK
-// @match        https://www.pokeclicker.com/
-// @icon         https://www.google.com/s2/favicons?domain=pokeclicker.com
-// @grant        unsafeWindow
-// @run-at       document-idle
-// ==/UserScript==
-
 (function () {
     'use strict';
 
