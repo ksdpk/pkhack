@@ -11,7 +11,6 @@
         { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount), current: () => App.game.wallet.contestTokens(), icon: "https://www.pokeclicker.com/assets/images/currency/contestToken.svg" },
     ];
 
-    // รายการ Evolution Items ครบตามที่ให้มา
     const evoItems = [
         "Auspicious_armor", "Black_augurite", "Black_DNA", "Black_mane_hair",
         "Cracked_pot", "Crystallized_shadow", "Dawn_stone", "Deep_sea_scale",
@@ -85,13 +84,19 @@
 
         html += `
             <h4 style="margin:10px 0 5px 0;font-size:16px;">🪄 Evolution Items</h4>
-            <p style="font-size:12px;margin-bottom:5px;">กด <b>Alt + 1</b> เพื่อรับ Evolution Items ครบทุกชนิด</p>
+            <label>เลือกไอเท็ม:</label>
+            <select id="evoSelect" style="width:100%;margin-bottom:5px;">
+                ${evoItems.map(i => `<option value="${i}">${i.replace(/_/g, ' ')}</option>`).join('')}
+            </select>
+            <label>จำนวน:</label>
+            <input type="number" id="evoAmount" value="1" min="1" style="width:100%;margin-bottom:5px;">
+            <button id="addEvoItem" style="width:100%;">เพิ่มไอเท็ม</button>
         `;
 
         container.innerHTML = html;
         document.body.appendChild(container);
 
-        // Event: เสกโปเกมอน
+        // เสกโปเกมอน
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const id = parseInt(document.getElementById("pokeId").value);
             const shiny = document.getElementById("pokeShiny").checked;
@@ -103,7 +108,7 @@
             }
         });
 
-        // Event: เลือกสกุลเงิน
+        // เลือกสกุลเงิน
         let selectedIndex = 0;
         document.querySelectorAll("#currencyList .currency-option").forEach(opt => {
             opt.addEventListener("click", function () {
@@ -113,7 +118,7 @@
             });
         });
 
-        // Event: เพิ่มเงิน/แต้ม
+        // เพิ่มเงิน/แต้ม
         document.getElementById("addCurrency").addEventListener("click", () => {
             const c = currencies[selectedIndex];
             const amount = parseInt(document.getElementById("currencyAmount").value) || 0;
@@ -123,17 +128,15 @@
             }
         });
 
-        // Key listener สำหรับ Evolution Items
-        document.addEventListener('keydown', function (e) {
-            if (e.altKey && e.code === 'Digit1') {
-                evoItems.forEach(itemName => {
-                    if (ItemList[itemName] && typeof ItemList[itemName].gain === 'function') {
-                        ItemList[itemName].gain(1);
-                    } else {
-                        console.warn(`⚠️ ไม่พบไอเทม: ${itemName}`);
-                    }
-                });
-                notify('🪄 ได้รับ Evolution Items ครบทุกชนิดแล้ว');
+        // เพิ่ม Evolution Item
+        document.getElementById("addEvoItem").addEventListener("click", () => {
+            const itemName = document.getElementById("evoSelect").value;
+            const amount = parseInt(document.getElementById("evoAmount").value) || 1;
+            if (ItemList[itemName] && typeof ItemList[itemName].gain === 'function') {
+                ItemList[itemName].gain(amount);
+                notify(`🪄 เพิ่ม ${itemName.replace(/_/g, ' ')} ×${amount}`);
+            } else {
+                notify(`⚠️ ไม่พบไอเท็ม: ${itemName}`);
             }
         });
     }
