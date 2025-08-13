@@ -11,13 +11,31 @@
         { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount), current: () => App.game.wallet.contestTokens(), icon: "https://www.pokeclicker.com/assets/images/currency/contestToken.svg" },
     ];
 
+    // รายการ Evolution Items ครบตามที่ให้มา
+    const evoItems = [
+        "Auspicious_armor", "Black_augurite", "Black_DNA", "Black_mane_hair",
+        "Cracked_pot", "Crystallized_shadow", "Dawn_stone", "Deep_sea_scale",
+        "Deep_sea_tooth", "Dragon_scale", "Dubious_disc", "Dusk_stone",
+        "Electirizer", "Fire_stone", "Galarica_cuff", "Galarica_wreath",
+        "Gimmighoul_coin", "Ice_stone", "Key_stone", "Kings_rock",
+        "Leaders_crest", "Leaf_stone", "Linking_cord", "Lunar_light",
+        "Magmarizer", "Malicious_armor", "Metal_alloy", "Metal_coat",
+        "Moon_stone", "Peat_block", "Prism_scale", "Protector",
+        "Pure_light", "Razor_claw", "Razor_fang", "Reaper_cloth",
+        "Sachet", "Shiny_stone", "Solar_light", "Soothe_bell",
+        "Sun_stone", "Sweet_apple", "Syrupy_apple", "Tart_apple",
+        "Thunder_stone", "Unremarkable_teacup", "Upgrade", "Water_stone",
+        "Whipped_dream", "White_DNA", "White_mane_hair"
+    ];
+
     function waitForGameLoad(callback) {
         const checkInterval = setInterval(() => {
             if (
                 typeof App !== 'undefined' &&
                 App.game &&
                 typeof App.game.party?.gainPokemonById === 'function' &&
-                App.game.wallet
+                App.game.wallet &&
+                typeof ItemList !== 'undefined'
             ) {
                 clearInterval(checkInterval);
                 callback();
@@ -40,7 +58,6 @@
         container.style.maxHeight = "90vh";
         container.style.overflowY = "auto";
 
-        // สร้าง UI สำหรับ Spawner
         let html = `
             <h4 style="margin:0 0 5px 0; font-size:16px;">🐉 Pokemon Spawner</h4>
             <label>ID (0-898):</label>
@@ -49,7 +66,6 @@
             <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">เสกโปเกมอน</button>
         `;
 
-        // สร้าง UI สำหรับ Currency Adder
         let currencyOptions = currencies.map((c, i) => `
             <div class="currency-option" data-index="${i}" style="display:flex;align-items:center;padding:5px;cursor:pointer;">
                 <img src="${c.icon}" style="width:20px;height:20px;margin-right:8px;">
@@ -65,6 +81,11 @@
             <label>จำนวน:</label>
             <input type="number" id="currencyAmount" value="1000" min="1" style="width:100%;margin-bottom:5px;">
             <button id="addCurrency" style="width:100%;">เพิ่ม</button>
+        `;
+
+        html += `
+            <h4 style="margin:10px 0 5px 0;font-size:16px;">🪄 Evolution Items</h4>
+            <p style="font-size:12px;margin-bottom:5px;">กด <b>Alt + 1</b> เพื่อรับ Evolution Items ครบทุกชนิด</p>
         `;
 
         container.innerHTML = html;
@@ -99,6 +120,20 @@
             if (amount > 0) {
                 c.method(amount);
                 notify(`✅ เพิ่ม ${c.name} +${amount} (ตอนนี้: ${c.current()})`);
+            }
+        });
+
+        // Key listener สำหรับ Evolution Items
+        document.addEventListener('keydown', function (e) {
+            if (e.altKey && e.code === 'Digit1') {
+                evoItems.forEach(itemName => {
+                    if (ItemList[itemName] && typeof ItemList[itemName].gain === 'function') {
+                        ItemList[itemName].gain(1);
+                    } else {
+                        console.warn(`⚠️ ไม่พบไอเทม: ${itemName}`);
+                    }
+                });
+                notify('🪄 ได้รับ Evolution Items ครบทุกชนิดแล้ว');
             }
         });
     }
