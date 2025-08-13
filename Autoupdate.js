@@ -2,15 +2,64 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.3"; // เพิ่ม ลดยะระเวลาในการจับโปเกมอน
+    const VERSION = "1.4.6"; // เพิ่ม Auto Click (100/s) แบบมินิมอล + แสดงผลคลิกจริง/วินาที
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
-    // ใช้สำหรับ autocomplete / ค้นหาแบบไม่เคร่งตัวพิมพ์
-    let itemIndex = new Map();
-    let itemListReady = false;
+    // ---------- Auto Click (minimal) ----------
+    const AC_TICKS_PER_SEC = 20;   // เรียก loop 20 ครั้ง/วินาที
+    const AC_MULTIPLIER    = 5;    // คลิกครั้งละ 5 → เป้าหมาย = 100/s
+    const AC_TARGET_RATE   = AC_TICKS_PER_SEC * AC_MULTIPLIER;
 
+    let acOn = JSON.parse(localStorage.getItem('acOn') || 'false');
+    let acLoop = null;
+    let acStatsLoop = null;
+    let lastClicksCount = 0;
+
+    function startAutoClick() {
+        stopAutoClick(); // กันซ้ำ
+        // loop ยิงคลิก
+        acLoop = setInterval(() => {
+            if (!acOn) return;
+            const state = App.game.gameState;
+            // ยิงคลิกตามสถานะต่อสู้ปัจจุบัน
+            if (state === GameConstants.GameState.fighting) {
+                for (let i = 0; i < AC_MULTIPLIER; i++) Battle.clickAttack();
+            } else if (state === GameConstants.GameState.gym) {
+                for (let i = 0; i < AC_MULTIPLIER; i++) GymBattle.clickAttack();
+            } else if (state === GameConstants.GameState.dungeon && DungeonRunner.fighting()) {
+                for (let i = 0; i < AC_MULTIPLIER; i++) DungeonBattle.clickAttack();
+            } else if (state === GameConstants.GameState.temporaryBattle) {
+                for (let i = 0; i < AC_MULTIPLIER; i++) TemporaryBattleBattle.clickAttack();
+            }
+        }, Math.ceil(1000 / AC_TICKS_PER_SEC));
+
+        // loop คำนวณคลิกจริง/วินาที
+        lastClicksCount = App.game.statistics.clickAttacks();
+        acStatsLoop = setInterval(() => {
+            const nowClicks = App.game.statistics.clickAttacks();
+            const diff = nowClicks - lastClicksCount;
+            lastClicksCount = nowClicks;
+            const el = document.getElementById('acActual');
+            if (el) el.textContent = diff.toLocaleString('en-US', { maximumFractionDigits: 1 });
+        }, 1000);
+    }
+
+    function stopAutoClick() {
+        if (acLoop) clearInterval(acLoop), acLoop = null;
+        if (acStatsLoop) clearInterval(acStatsLoop), acStatsLoop = null;
+    }
+
+    function setAutoClick(on) {
+        acOn = !!on;
+        localStorage.setItem('acOn', JSON.stringify(acOn));
+        if (acOn) startAutoClick(); else stopAutoClick();
+        const box = document.getElementById('acToggle');
+        if (box) box.checked = acOn;
+    }
+
+    // ---------- รายการเงิน/แต้ม ----------
     const currencies = [
         { name: "Pokédollars", method: amount => App.game.wallet.gainMoney(amount) },
         { name: "Dungeon Tokens", method: amount => App.game.wallet.gainDungeonTokens(amount) },
@@ -21,6 +70,7 @@
         { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount) },
     ];
 
+    // ---------- โหลดเกม ----------
     function waitForGameLoad(onReady) {
         const t = setInterval(() => {
             if (
@@ -33,11 +83,14 @@
             ) {
                 clearInterval(t);
                 gameReady = true;
-                buildItemIndex();
                 onReady?.();
             }
         }, 500);
     }
+
+    // ---------- ค้นหาชื่อไอเท็ม ----------
+    let itemIndex = new Map();
+    let itemListReady = false;
 
     function buildItemIndex() {
         try {
@@ -65,6 +118,7 @@
         return null;
     }
 
+    // ---------- UI ----------
     function createUI() {
         const existing = document.getElementById(CONTAINER_ID);
         if (existing) return existing;
@@ -81,7 +135,7 @@
             borderRadius: "8px",
             color: "#fff",
             fontSize: "14px",
-            width: "280px",
+            width: "300px",
             maxHeight: "90vh",
             overflowY: "auto",
             boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
@@ -92,6 +146,7 @@
             <h4 style="margin:0 0 5px 0; font-size:16px;">
                 🐉 ${SCRIPT_NAME} <span style="opacity:.7;font-size:12px;">v${VERSION}</span>
             </h4>
+
             <label>ID (1-898):</label>
             <input type="number" id="pokeId" value="1" min="1" max="898" style="width:100%; margin-bottom:5px;">
             <label style="display:inline-flex;align-items:center;gap:6px;">
@@ -100,9 +155,7 @@
             <button id="spawnPokemon" style="width:100%; margin-top:5px; margin-bottom:10px;">
                 เสกโปเกมอน
             </button>
-        `;
 
-        html += `
             <h4 style="margin:10px 0 5px 0;font-size:16px;">💰 Currency Adder</h4>
             <label>เลือกสกุลเงิน:</label>
             <select id="currencySelect" style="width:100%;margin-bottom:5px;">
@@ -111,9 +164,14 @@
             <label>จำนวน:</label>
             <input type="number" id="currencyAmount" value="1000" min="1" style="width:100%;margin-bottom:5px;">
             <button id="addCurrency" style="width:100%;">เพิ่ม</button>
-        `;
 
-        html += `
+            <h4 style="margin:10px 0 5px 0;font-size:16px;">⚙️ Auto Click</h4>
+            <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <input type="checkbox" id="acToggle"> เปิดใช้งาน Auto Click
+            </label>
+            <div style="opacity:.9;margin-bottom:2px;">Click Attack Rate (target): <b>${AC_TARGET_RATE}/s</b></div>
+            <div>Clicks/s (actual): <b id="acActual">-</b></div>
+
             <h4 style="margin:10px 0 5px 0;font-size:16px;">📦 ไอเท็มอื่น ๆ</h4>
             <label>พิมพ์ชื่อไอเท็ม (auto-complete):</label>
             <input id="customItemName" list="itemNameInputList" placeholder="เช่น Rare Candy หรือ Rare_Candy" style="width:100%;margin-bottom:5px;">
@@ -130,6 +188,7 @@
         container.innerHTML = html;
         document.body.appendChild(container);
 
+        // เติม datalist
         if (itemListReady) {
             const dl = document.getElementById('itemNameInputList');
             if (dl) {
@@ -143,6 +202,7 @@
             }
         }
 
+        // Spawner
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const id = parseInt(document.getElementById("pokeId").value);
             const shiny = document.getElementById("pokeShiny").checked;
@@ -154,6 +214,7 @@
             }
         });
 
+        // Currency
         document.getElementById("addCurrency").addEventListener("click", () => {
             const sel = document.getElementById("currencySelect");
             const idx = parseInt(sel.value) || 0;
@@ -165,10 +226,10 @@
             }
         });
 
+        // Custom item
         const customNameEl = document.getElementById("customItemName");
         const customAmtEl  = document.getElementById("customItemAmount");
         const addCustomBtn = document.getElementById("addCustomItem");
-
         function addCustom() {
             const itemName = (customNameEl.value || '').trim();
             const amount = parseInt(customAmtEl.value) || 1;
@@ -178,20 +239,17 @@
             }
             gainItemByName(itemName, amount, "📦");
         }
-
         addCustomBtn.addEventListener("click", addCustom);
-        customNameEl.addEventListener("keydown", (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addCustom();
-            }
-        });
-        customAmtEl.addEventListener("keydown", (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addCustom();
-            }
-        });
+        customNameEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+        customAmtEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+
+        // Auto Click toggle
+        const acToggle = document.getElementById('acToggle');
+        acToggle.checked = acOn;
+        acToggle.addEventListener('change', () => setAutoClick(acToggle.checked));
+
+        // ถ้า UI เปิดหลังเกมพร้อมและเคยเปิดไว้ → เดินเครื่องเลย
+        if (acOn) setAutoClick(true);
 
         return container;
     }
@@ -235,15 +293,32 @@
         }
     }
 
+    // ---------- Boot ----------
     waitForGameLoad(() => {
+        buildItemIndex();
+
+        // แจ้งเตือนพร้อมใช้งาน
         notify(`✅ ${SCRIPT_NAME} v${VERSION} พร้อมใช้งาน — กด Insert เพื่อเปิด/ปิด`);
-        App.game.pokeballs.pokeballs.forEach(ball => ball.catchTime = 10);
+
+        // ทวีคเดิมของคุณ
+        App.game.pokeballs.pokeballs.forEach(ball => ball.catchTime = 10);          // ลดเวลาการจับ
+        App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];   // เปอร์เซนการจับ
+        App.game.oakItems.itemList[0].inactiveBonus = 100;
+        App.game.multiplier.addBonus('shiny',   () => 100); // อัตรา shiny
+        App.game.multiplier.addBonus('roaming', () => 100); // ตัวหายาก
+        App.game.multiplier.addBonus('exp',     () => 100); // EXP
+        App.game.multiplier.addBonus('eggStep', () => 100); // ฟักไข่
+        [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
+        [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
+
+        // ถ้าไม่ได้เปิด UI แต่ต้องการให้ Auto Click ทำงานต่อเนื่องตามสถานะเดิม:
+        if (acOn) setAutoClick(true);
     });
 
+    // Hotkey แค่เปิด/ปิด UI (ตามเดิม)
     document.addEventListener('keydown', (e) => {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
         if (tag === 'input' || tag === 'textarea') return;
-
         if (e.key === 'Insert' || e.code === 'Insert' || e.keyCode === 45) {
             e.preventDefault();
             toggleUI();
