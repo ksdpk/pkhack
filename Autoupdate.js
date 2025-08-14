@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.6"; // เพิ่ม Auto Click (100/s) แบบมินิมอล + แสดงผลคลิกจริง/วินาที
+    const VERSION = "1.4.7"; // เพิ่ม console.log ประเภทบอลที่ลดระยะเวลาลงไป
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
