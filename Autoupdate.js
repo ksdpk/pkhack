@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.9"; // เพิ่ม Fast Pokémon Attack + UI toggle
+    const VERSION = "1.5.0"; // เพิ่ม เสกโปเกมอนด้วยจุดทศนิยม
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -62,7 +62,7 @@
     // ---------- Fast Pokémon Attack (ไม่แก้ constant) ----------
     // ยิง pokemonAttack() เองถี่ ๆ ตามโหมดการสู้ เพื่อลด "ระยะเวลาโจมตีอัตโนมัติ"
     const PA_INTERVAL_MS = 10; // 10ms ≈ 100 ครั้ง/วินาที (ระวัง CPU)
-    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'true'); // เปิดค่าเริ่มต้น
+    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'false'); // ปิดค่าเริ่มต้น
     let paLoop = null;
 
     function startFastPokemonAttack() {
@@ -255,13 +255,16 @@
 
         // Spawner
         document.getElementById("spawnPokemon").addEventListener("click", () => {
-            const id = parseInt(document.getElementById("pokeId").value);
+            const idInput = document.getElementById("pokeId").value;
+            const id = parseFloat(idInput); // รองรับทศนิยม
             const shiny = document.getElementById("pokeShiny").checked;
-            if (id >= 1 && id <= 898) {
+        
+            if (id >= 1 && id <= 898.99) {
                 App.game.party.gainPokemonById(id, shiny);
-                notify(`✅ เสกโปเกมอน ID ${id} (${shiny ? '✨ Shiny' : 'ปกติ'})`);
+                const name = PokemonHelper.getPokemonById(id)?.name || 'Unknown';
+                notify(`✅ เสกโปเกมอน: ${name} (ID: ${id}) ${shiny ? '✨ Shiny' : 'ปกติ'}`);
             } else {
-                notify(`❌ ID ต้องอยู่ระหว่าง 1-898`);
+                notify(`❌ ID ต้องอยู่ระหว่าง 1 ถึง 898.x`);
             }
         });
 
