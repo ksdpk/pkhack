@@ -2,13 +2,13 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.7"; // เพิ่ม console.log ประเภทบอลที่ลดระยะเวลาลงไป
+    const VERSION = "1.4.8"; // เปลี่ยน AC_TICKS_PER_SEC จาก 20 เป็น 100
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
     // ---------- Auto Click (minimal) ----------
-    const AC_TICKS_PER_SEC = 20;   // เรียก loop 20 ครั้ง/วินาที
+    const AC_TICKS_PER_SEC = 100;   // เรียก loop 100 ครั้ง/วินาที
     const AC_MULTIPLIER    = 5;    // คลิกครั้งละ 5 → เป้าหมาย = 100/s
     const AC_TARGET_RATE   = AC_TICKS_PER_SEC * AC_MULTIPLIER;
 
