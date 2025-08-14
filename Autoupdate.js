@@ -2,14 +2,14 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.4.8"; // เปลี่ยน AC_TICKS_PER_SEC จาก 20 เป็น 100
+    const VERSION = "1.4.9"; // เพิ่ม Fast Pokémon Attack + UI toggle
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
     // ---------- Auto Click (minimal) ----------
     const AC_TICKS_PER_SEC = 100;   // เรียก loop 100 ครั้ง/วินาที
-    const AC_MULTIPLIER    = 5;    // คลิกครั้งละ 5 → เป้าหมาย = 100/s
+    const AC_MULTIPLIER    = 5;     // คลิกครั้งละ 5 → เป้าหมาย = 100/s
     const AC_TARGET_RATE   = AC_TICKS_PER_SEC * AC_MULTIPLIER;
 
     let acOn = JSON.parse(localStorage.getItem('acOn') || 'false');
@@ -28,7 +28,7 @@
                 for (let i = 0; i < AC_MULTIPLIER; i++) Battle.clickAttack();
             } else if (state === GameConstants.GameState.gym) {
                 for (let i = 0; i < AC_MULTIPLIER; i++) GymBattle.clickAttack();
-            } else if (state === GameConstants.GameState.dungeon && DungeonRunner.fighting()) {
+            } else if (state === GameConstants.GameState.dungeon && DungeonRunner.fighting?.()) {
                 for (let i = 0; i < AC_MULTIPLIER; i++) DungeonBattle.clickAttack();
             } else if (state === GameConstants.GameState.temporaryBattle) {
                 for (let i = 0; i < AC_MULTIPLIER; i++) TemporaryBattleBattle.clickAttack();
@@ -59,15 +59,60 @@
         if (box) box.checked = acOn;
     }
 
+    // ---------- Fast Pokémon Attack (ไม่แก้ constant) ----------
+    // ยิง pokemonAttack() เองถี่ ๆ ตามโหมดการสู้ เพื่อลด "ระยะเวลาโจมตีอัตโนมัติ"
+    const PA_INTERVAL_MS = 10; // 10ms ≈ 100 ครั้ง/วินาที (ระวัง CPU)
+    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'true'); // เปิดค่าเริ่มต้น
+    let paLoop = null;
+
+    function startFastPokemonAttack() {
+        stopFastPokemonAttack();
+        paLoop = setInterval(() => {
+            if (!paOn) return;
+            const state = App.game.gameState;
+
+            // ตรวจว่าในแต่ละโหมด "กำลังสู้" อยู่ และมีศัตรู
+            if (state === GameConstants.GameState.fighting) {
+                const enemy = Battle.enemyPokemon?.();
+                if (enemy?.isAlive?.()) Battle.pokemonAttack();
+            } else if (state === GameConstants.GameState.gym) {
+                const enemy = GymBattle.enemyPokemon?.();
+                if (GymRunner?.running?.() && enemy?.isAlive?.()) GymBattle.pokemonAttack();
+            } else if (state === GameConstants.GameState.dungeon) {
+                const enemy = DungeonBattle.enemyPokemon?.();
+                if (DungeonRunner?.fighting?.() && enemy?.isAlive?.()) DungeonBattle.pokemonAttack();
+            } else if (state === GameConstants.GameState.temporaryBattle) {
+                const enemy = TemporaryBattleBattle.enemyPokemon?.();
+                if (TemporaryBattleRunner?.running?.() && enemy?.isAlive?.()) TemporaryBattleBattle.pokemonAttack();
+            } else if (state === GameConstants.GameState.battleFrontier) {
+                // จะเร็วจริงต้องใช้แพตช์ปลดลิมิต 450ms ข้างล่าง
+                const enemy = BattleFrontierBattle?.enemyPokemon?.();
+                if (BattleFrontierRunner?.started?.() && enemy?.isAlive?.()) BattleFrontierBattle.pokemonAttack();
+            }
+        }, PA_INTERVAL_MS);
+    }
+
+    function stopFastPokemonAttack() {
+        if (paLoop) clearInterval(paLoop), paLoop = null;
+    }
+
+    function setFastPokemonAttack(on) {
+        paOn = !!on;
+        localStorage.setItem('paOn', JSON.stringify(paOn));
+        if (paOn) startFastPokemonAttack(); else stopFastPokemonAttack();
+        const box = document.getElementById('paToggle');
+        if (box) box.checked = paOn;
+    }
+
     // ---------- รายการเงิน/แต้ม ----------
     const currencies = [
-        { name: "Pokédollars", method: amount => App.game.wallet.gainMoney(amount) },
-        { name: "Dungeon Tokens", method: amount => App.game.wallet.gainDungeonTokens(amount) },
-        { name: "Quest Points", method: amount => App.game.wallet.gainQuestPoints(amount) },
-        { name: "Farm Points", method: amount => App.game.wallet.gainFarmPoints(amount) },
-        { name: "Diamonds", method: amount => App.game.wallet.gainDiamonds(amount) },
-        { name: "Battle Points", method: amount => App.game.wallet.gainBattlePoints(amount) },
-        { name: "Contest Tokens", method: amount => App.game.wallet.gainContestTokens(amount) },
+        { name: "Pokédollars",     method: amount => App.game.wallet.gainMoney(amount) },
+        { name: "Dungeon Tokens",  method: amount => App.game.wallet.gainDungeonTokens(amount) },
+        { name: "Quest Points",    method: amount => App.game.wallet.gainQuestPoints(amount) },
+        { name: "Farm Points",     method: amount => App.game.wallet.gainFarmPoints(amount) },
+        { name: "Diamonds",        method: amount => App.game.wallet.gainDiamonds(amount) },
+        { name: "Battle Points",   method: amount => App.game.wallet.gainBattlePoints(amount) },
+        { name: "Contest Tokens",  method: amount => App.game.wallet.gainContestTokens(amount) },
     ];
 
     // ---------- โหลดเกม ----------
@@ -172,6 +217,12 @@
             <div style="opacity:.9;margin-bottom:2px;">Click Attack Rate (target): <b>${AC_TARGET_RATE}/s</b></div>
             <div>Clicks/s (actual): <b id="acActual">-</b></div>
 
+            <h4 style="margin:10px 0 5px 0;font-size:16px;">⚡ Fast Pokémon Attack</h4>
+            <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <input type="checkbox" id="paToggle"> เปิดใช้งาน Fast Pokémon Attack
+            </label>
+            <div style="opacity:.8;">Interval: <b>${PA_INTERVAL_MS} ms</b> (ยิ่งต่ำยิ่งเร็ว แต่กิน CPU)</div>
+
             <h4 style="margin:10px 0 5px 0;font-size:16px;">📦 ไอเท็มอื่น ๆ</h4>
             <label>พิมพ์ชื่อไอเท็ม (auto-complete):</label>
             <input id="customItemName" list="itemNameInputList" placeholder="เช่น Rare Candy หรือ Rare_Candy" style="width:100%;margin-bottom:5px;">
@@ -248,8 +299,14 @@
         acToggle.checked = acOn;
         acToggle.addEventListener('change', () => setAutoClick(acToggle.checked));
 
+        // Fast Pokémon Attack toggle
+        const paToggle = document.getElementById('paToggle');
+        paToggle.checked = paOn;
+        paToggle.addEventListener('change', () => setFastPokemonAttack(paToggle.checked));
+
         // ถ้า UI เปิดหลังเกมพร้อมและเคยเปิดไว้ → เดินเครื่องเลย
         if (acOn) setAutoClick(true);
+        if (paOn) setFastPokemonAttack(true);
 
         return container;
     }
@@ -314,8 +371,21 @@
         [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
 
-        // ถ้าไม่ได้เปิด UI แต่ต้องการให้ Auto Click ทำงานต่อเนื่องตามสถานะเดิม:
+        // ถ้าไม่ได้เปิด UI แต่ต้องการให้ Auto Click/PA ทำงานต่อเนื่องตามสถานะเดิม:
         if (acOn) setAutoClick(true);
+        if (paOn) setFastPokemonAttack(true);
+
+        // --- ปลดลิมิต 450ms ของ Battle Frontier เพื่อให้ Fast Pokémon Attack เร็วจริง ---
+        if (typeof BattleFrontierBattle !== 'undefined') {
+            BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
+            BattleFrontierBattle.pokemonAttack = function () {
+                const enemy = this.enemyPokemon?.();
+                if (!enemy?.isAlive()) return;
+                const weather = (typeof WeatherType !== 'undefined') ? WeatherType.Clear : 0;
+                enemy.damage(App.game.party.calculatePokemonAttack(enemy.type1, enemy.type2, true, GameConstants.Region.none, false, false, weather));
+                if (!enemy.isAlive()) this.defeatPokemon();
+            };
+        }
     });
 
     // Hotkey แค่เปิด/ปิด UI (ตามเดิม)
