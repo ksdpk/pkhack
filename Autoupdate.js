@@ -303,7 +303,7 @@
         // ทวีคเดิมของคุณ
         App.game.pokeballs.pokeballs.forEach(ball => {
             ball.catchTime = 10;
-            console.log(`⚡ Pokéball: ${ball.name} → catchTime = ${ball.catchTime}ms`);
+            console.log(`⚡ Pokéball: ${ball.name || ball.type} → catchTime = ${ball.catchTime}ms`);
         });          // ลดเวลาการจับ
         App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];   // เปอร์เซนการจับ
         App.game.oakItems.itemList[0].inactiveBonus = 100;
