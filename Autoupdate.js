@@ -364,13 +364,13 @@
         App.game.pokeballs.pokeballs.forEach(ball => {
             ball.catchTime = 10;
             console.log(`⚡ Pokéball: ${ball.name || ball.type} → catchTime = ${ball.catchTime}ms`);
-        });          // ลดเวลาการจับ
-        App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];   // เปอร์เซนการจับ
+        });
+        App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];
         App.game.oakItems.itemList[0].inactiveBonus = 100;
-        App.game.multiplier.addBonus('shiny',   () => 100); // อัตรา shiny
-        App.game.multiplier.addBonus('roaming', () => 100); // ตัวหายาก
-        App.game.multiplier.addBonus('exp',     () => 100); // EXP
-        App.game.multiplier.addBonus('eggStep', () => 100); // ฟักไข่
+        App.game.multiplier.addBonus('shiny',   () => 10);
+        App.game.multiplier.addBonus('roaming', () => 100);
+        App.game.multiplier.addBonus('exp',     () => 100);
+        App.game.multiplier.addBonus('eggStep', () => 100);
         [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
 
