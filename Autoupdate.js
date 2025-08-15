@@ -2,15 +2,20 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.7.4"; // Add Remove Pokemon MissingNo
+    const VERSION = "1.7.8";
+
+    // ⛔ ตั้งให้ไม่เปิด UI อัตโนมัติ
+    const AUTO_OPEN_UI = false;
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
+    // ---------- Auto Click / Fast Attack ----------
     const AC_TICKS_PER_SEC = 100;
     const AC_MULTIPLIER    = 5;
 
-    let acOn = JSON.parse(localStorage.getItem('acOn') || 'false');
+    // เปิดอัตโนมัติเป็นค่าเริ่มต้น
+    let acOn = JSON.parse(localStorage.getItem('acOn') ?? 'true');
     let acLoop = null;
 
     function startAutoClick() {
@@ -49,7 +54,6 @@
         paLoop = setInterval(() => {
             if (!paOn) return;
             const state = App.game.gameState;
-
             if (state === GameConstants.GameState.fighting) {
                 const enemy = Battle.enemyPokemon?.();
                 if (enemy?.isAlive?.()) Battle.pokemonAttack();
@@ -77,6 +81,26 @@
         if (box) box.checked = paOn;
     }
 
+    // 🔸 Auto-start kicker
+    function autoStartFeatures(retryMs = 800, tries = 6) {
+        const kick = () => {
+            try { setAutoClick(true); } catch {}
+            try { setFastPokemonAttack(true); } catch {}
+        };
+        kick();
+        let left = Math.max(0, tries - 1);
+        const timer = setInterval(() => {
+            kick();
+            if (--left <= 0) clearInterval(timer);
+        }, retryMs);
+    }
+
+    window.addEventListener('focus', () => autoStartFeatures(800, 3));
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') autoStartFeatures(800, 3);
+    });
+
+    // ---------- Oak Items Unlimited (existing patch) ----------
     (function () {
         const LOG_PREFIX = '[OakFix]';
         const desiredMode = 'ALL';
@@ -136,11 +160,9 @@
                 for (let i = 0; i < total; i++) {
                     const ia = O.isActive?.[i];
                     const itemIA = O.itemList?.[i]?.isActive;
-                    if (ko?.isObservable?.(ia)) {
-                        ia(true);
-                    } else if (ko?.isObservable?.(itemIA)) {
-                        itemIA(true);
-                    } else if (typeof O.toggleItem === 'function') {
+                    if (ko?.isObservable?.(ia)) ia(true);
+                    else if (ko?.isObservable?.(itemIA)) itemIA(true);
+                    else if (typeof O.toggleItem === 'function') {
                         const wasActive = (ia?.() ?? itemIA?.() ?? false);
                         if (!wasActive) O.toggleItem(i);
                     }
@@ -174,6 +196,8 @@
                 Preload.hideSplashScreen = function (...args) {
                     const r = oldHide.apply(this, args);
                     setTimeout(tryRun, 0);
+                    // เตะระบบทันทีที่ปิด Splash
+                    setTimeout(() => autoStartFeatures(800, 6), 0);
                     return r;
                 };
             }
@@ -182,6 +206,7 @@
         tryRun();
     })();
 
+    // ---------- Currency helpers ----------
     const currencies = [
         { name: "Pokédollars",     method: amount => App.game.wallet.gainMoney(amount) },
         { name: "Dungeon Tokens",  method: amount => App.game.wallet.gainDungeonTokens(amount) },
@@ -192,6 +217,7 @@
         { name: "Contest Tokens",  method: amount => App.game.wallet.gainContestTokens(amount) },
     ];
 
+    // ---------- Wait for game ----------
     function waitForGameLoad(onReady) {
         const t = setInterval(() => {
             if (
@@ -200,7 +226,9 @@
                 typeof App.game.party?.gainPokemonById === 'function' &&
                 App.game.wallet &&
                 App.game.pokeballs &&
-                typeof ItemList !== 'undefined'
+                typeof ItemList !== 'undefined' &&
+                typeof PokemonHelper !== 'undefined' &&
+                typeof PokemonHelper.getPokemonById === 'function'
             ) {
                 clearInterval(t);
                 gameReady = true;
@@ -209,6 +237,7 @@
         }, 500);
     }
 
+    // ---------- Item index ----------
     let itemIndex = new Map();
     let itemListReady = false;
 
@@ -237,6 +266,66 @@
         return null;
     }
 
+    // ---------- Pokémon name index (forms-aware) ----------
+    const POKE_MAX_BASE_ID = 898;
+    const POKE_MAX_FORMS   = 99;
+
+    // name -> { idDisplay: string, spawnId: number, name: string }
+    let pokemonNameIndex = new Map();
+
+    function pushNameEntry(idDisplay, spawnId, name) {
+        if (!name) return;
+        if (!pokemonNameIndex.has(name)) {
+            pokemonNameIndex.set(name, { idDisplay, spawnId, name });
+        }
+    }
+
+    function buildPokemonNameIndex() {
+        pokemonNameIndex.clear();
+
+        // base ids
+        for (let base = 1; base <= POKE_MAX_BASE_ID; base++) {
+            const p = PokemonHelper.getPokemonById(base);
+            if (p?.name) pushNameEntry(String(base), base, p.name);
+        }
+
+        // forms .01 - .99
+        for (let base = 1; base <= POKE_MAX_BASE_ID; base++) {
+            for (let f = 1; f <= POKE_MAX_FORMS; f++) {
+                const formTwo = String(f).padStart(2, '0');
+                const idStr   = `${base}.${formTwo}`;      // "229.01"
+                let name = null;
+                let spawnIdNum = null;
+
+                if (typeof pokemonMap !== 'undefined' && pokemonMap?.[idStr]?.name) {
+                    name = pokemonMap[idStr].name;
+                }
+
+                if (!name) {
+                    const idNum = Number((base + f/100).toFixed(2));
+                    const pf = PokemonHelper.getPokemonById(idNum);
+                    if (pf?.name) { name = pf.name; spawnIdNum = idNum; }
+                }
+
+                if (name && spawnIdNum == null) spawnIdNum = Number(idStr);
+                if (name && spawnIdNum != null) pushNameEntry(idStr, spawnIdNum, name);
+            }
+        }
+    }
+
+    function populatePokemonDatalist() {
+        const dl = document.getElementById('pokemonNameList');
+        if (!dl) return;
+        dl.innerHTML = '';
+        const names = Array.from(pokemonNameIndex.keys()).sort((a,b)=>a.localeCompare(b));
+        for (const n of names) {
+            const opt = document.createElement('option');
+            opt.value = n;
+            dl.appendChild(opt);
+        }
+    }
+
+    // ---------- UI ----------
     function createUI() {
         const existing = document.getElementById(CONTAINER_ID);
         if (existing) return existing;
@@ -265,8 +354,9 @@
                 🐉 ${SCRIPT_NAME} <span style="opacity:.7;font-size:12px;">v${VERSION}</span>
             </h4>
 
-            <label>ID (1-898):</label>
-            <input type="number" id="pokeId" value="1" min="1" max="898" style="width:100%; margin-bottom:5px;">
+            <label>เลือกโปเกมอน (Auto-complete):</label>
+            <input id="pokeName" list="pokemonNameList" placeholder="เช่น Houndoom (Mega)" style="width:100%; margin-bottom:5px;">
+            <datalist id="pokemonNameList"></datalist>
             <label style="display:inline-flex;align-items:center;gap:6px;">
                 <input type="checkbox" id="pokeShiny"> Shiny
             </label><br>
@@ -310,6 +400,7 @@
         container.innerHTML = html;
         document.body.appendChild(container);
 
+        // เติมรายการไอเท็ม
         if (itemListReady) {
             const dl = document.getElementById('itemNameInputList');
             dl.innerHTML = '';
@@ -321,16 +412,48 @@
             }
         }
 
+        // เติมรายชื่อโปเกมอน
+        populatePokemonDatalist();
+
+        // Handlers
         document.getElementById("spawnPokemon").addEventListener("click", () => {
-            const id = parseFloat(document.getElementById("pokeId").value);
+            const nameInput = String(document.getElementById("pokeName").value || '').trim();
             const shiny = document.getElementById("pokeShiny").checked;
-            if (id >= 1 && id <= 898.99) {
-                App.game.party.gainPokemonById(id, shiny);
-                const name = PokemonHelper.getPokemonById(id)?.name || 'Unknown';
-                notify(`✅ เสกโปเกมอน: ${name} (ID: ${id}) ${shiny ? '✨ Shiny' : 'ปกติ'}`);
-            } else {
-                notify(`❌ ID ต้องอยู่ระหว่าง 1 ถึง 898.x`);
+
+            if (!nameInput) {
+                notify('⚠️ กรุณาพิมพ์ชื่อโปเกมอน (เช่น "Houndoom (Mega)")');
+                return;
             }
+
+            let entry = pokemonNameIndex.get(nameInput);
+
+            if (!entry) {
+                const lower = nameInput.toLowerCase();
+                for (const [k, v] of pokemonNameIndex.entries()) {
+                    if (k.toLowerCase() === lower) { entry = v; break; }
+                }
+                if (!entry) {
+                    for (const [k, v] of pokemonNameIndex.entries()) {
+                        if (k.toLowerCase().startsWith(lower)) { entry = v; break; }
+                    }
+                }
+            }
+
+            if (!entry) {
+                notify(`❌ ไม่พบโปเกมอนชื่อ: ${nameInput}`);
+                return;
+            }
+
+            const { spawnId, name } = entry;
+
+            if (typeof App?.game?.party?.gainPokemonByName === 'function') {
+                App.game.party.gainPokemonByName(name, shiny);
+                notify(`✅ เสกโปเกมอน: ${name} ${shiny ? '✨ Shiny' : 'ปกติ'}`);
+                return;
+            }
+
+            App.game.party.gainPokemonById(spawnId, shiny);
+            notify(`✅ เสกโปเกมอน: ${name} (ID: ${spawnId}) ${shiny ? '✨ Shiny' : 'ปกติ'}`);
         });
 
         document.getElementById("addCurrency").addEventListener("click", () => {
@@ -365,16 +488,6 @@
         return container;
     }
 
-    function gainItemByName(inputName, amount, icon = "🎁") {
-        const key = resolveItemKey(inputName);
-        if (key && ItemList[key]?.gain) {
-            ItemList[key].gain(amount);
-            notify(`${icon} เพิ่ม ${key.replace(/_/g, ' ')} ×${amount}`);
-        } else {
-            notify(`⚠️ ไม่พบไอเท็ม: ${inputName}`);
-        }
-    }
-
     function removeUI() {
         const el = document.getElementById(CONTAINER_ID);
         if (el) el.remove();
@@ -385,6 +498,16 @@
         if (exists) removeUI();
         else if (gameReady) createUI();
         else notify("⏳ กำลังโหลดเกม รอสักครู่แล้วกด Ctrl + Insert อีกครั้ง");
+    }
+
+    function gainItemByName(inputName, amount, icon = "🎁") {
+        const key = resolveItemKey(inputName);
+        if (key && ItemList[key]?.gain) {
+            ItemList[key].gain(amount);
+            notify(`${icon} เพิ่ม ${key.replace(/_/g, ' ')} ×${amount}`);
+        } else {
+            notify(`⚠️ ไม่พบไอเท็ม: ${inputName}`);
+        }
     }
 
     function notify(msg) {
@@ -399,34 +522,47 @@
         }
     }
 
+    // ---------- Boot ----------
     waitForGameLoad(() => {
         buildItemIndex();
         notify(`✅ ${SCRIPT_NAME} v${VERSION} Ready !!`);
-        App.game.oakItems.itemList.forEach(item => {
-            if (typeof item.level === 'function') {
-                item.level(item.maxLevel);
-            } else {
-                item.level = item.maxLevel;
-            }
-        });
-        App.game.oakItems.update();
-        App.game.oakItems.calculateBonus();
-        App.game.pokeballs.pokeballs.forEach(ball => {ball.catchTime = 10;});
-        App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];
-        App.game.oakItems.itemList[0].inactiveBonus = 100;
-        App.game.multiplier.addBonus('shiny',   () => 10);
-        App.game.multiplier.addBonus('roaming', () => 100);
-        App.game.multiplier.addBonus('exp',     () => 100);
-        App.game.multiplier.addBonus('eggStep', () => 100);
-        [4, 8, 9].forEach(i => {
-            App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100];
-            App.game.oakItems.itemList[i].inactiveBonus = 100;
-        });
-        [7,10,11].forEach(i => {
-            App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999];
-            App.game.oakItems.itemList[i].inactiveBonus = 999999;
-        });
-        BerryMutations.mutationChance = 100;
+
+        // เตรียมชื่อโปเกมอน (ไม่ต้องมี UI ก็ทำงานได้)
+        buildPokemonNameIndex();
+
+        // เริ่มทำงานเลย และย้ำช่วงแรก
+        autoStartFeatures(800, 6);
+
+        // Oak items to max level
+        try {
+            App.game.oakItems.itemList.forEach(item => {
+                if (typeof item.level === 'function') item.level(item.maxLevel);
+                else item.level = item.maxLevel;
+            });
+            App.game.oakItems.update();
+            App.game.oakItems.calculateBonus();
+        } catch {}
+
+        // tweaks อื่น ๆ
+        try {
+            App.game.pokeballs.pokeballs.forEach(ball => { ball.catchTime = 10; });
+            App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];
+            App.game.oakItems.itemList[0].inactiveBonus = 100;
+            App.game.multiplier.addBonus('shiny',   () => 10);
+            App.game.multiplier.addBonus('roaming', () => 100);
+            App.game.multiplier.addBonus('exp',     () => 100);
+            App.game.multiplier.addBonus('eggStep', () => 100);
+            [4, 8, 9].forEach(i => {
+                App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100];
+                App.game.oakItems.itemList[i].inactiveBonus = 100;
+            });
+            [7,10,11].forEach(i => {
+                App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999];
+                App.game.oakItems.itemList[i].inactiveBonus = 999999;
+            });
+            BerryMutations.mutationChance = 100;
+        } catch {}
+
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
             BattleFrontierBattle.pokemonAttack = function () {
@@ -439,11 +575,19 @@
                 if (!enemy.isAlive()) this.defeatPokemon();
             };
         }
-        App.game.party.removePokemonByName("MissingNo.");
-        setAutoClick(true);
-        setFastPokemonAttack(true);
+
+        // ลบ MissingNo. เผื่อมี
+        try { App.game.party.removePokemonByName?.("MissingNo."); } catch {}
+
+        // ❌ ไม่เรียก createUI(); อีกต่อไป
+        // ถ้าต้องการเปิด UI กด Ctrl+Insert เพื่อ toggleUI()
+        if (AUTO_OPEN_UI) {
+            // เผื่ออยากเปิดอัตโนมัติในอนาคต
+            try { createUI(); } catch {}
+        }
     });
 
+    // ---------- Hotkey ----------
     document.addEventListener('keydown', (e) => {
         const tag = e.target?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea') return;
@@ -452,5 +596,4 @@
             toggleUI();
         }
     });
-
 })();
