@@ -56,7 +56,7 @@
     }
 
     const PA_INTERVAL_MS = 10;
-    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'false');
+    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'true');
     let paLoop = null;
 
     function startFastPokemonAttack() {
