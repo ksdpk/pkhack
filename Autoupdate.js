@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.6"; // ตัดสถิติคลิกออก เพื่อลดการกิน CPU
+    const VERSION = "1.7.1"; // Add Oak Items Unlimited
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -26,14 +26,12 @@
                 for (let i = 0; i < AC_MULTIPLIER; i++) DungeonBattle.clickAttack();
             } else if (state === GameConstants.GameState.temporaryBattle) {
                 for (let i = 0; i < AC_MULTIPLIER; i++) TemporaryBattleBattle.clickAttack();
+            } else if (state === GameConstants.GameState.battleFrontier) {
+                for (let i = 0; i < AC_MULTIPLIER; i++) BattleFrontierBattle.clickAttack();
             }
         }, Math.ceil(1000 / AC_TICKS_PER_SEC));
     }
-
-    function stopAutoClick() {
-        if (acLoop) clearInterval(acLoop), acLoop = null;
-    }
-
+    function stopAutoClick() { if (acLoop) clearInterval(acLoop), acLoop = null; }
     function setAutoClick(on) {
         acOn = !!on;
         localStorage.setItem('acOn', JSON.stringify(acOn));
@@ -70,11 +68,7 @@
             }
         }, PA_INTERVAL_MS);
     }
-
-    function stopFastPokemonAttack() {
-        if (paLoop) clearInterval(paLoop), paLoop = null;
-    }
-
+    function stopFastPokemonAttack() { if (paLoop) clearInterval(paLoop), paLoop = null; }
     function setFastPokemonAttack(on) {
         paOn = !!on;
         localStorage.setItem('paOn', JSON.stringify(paOn));
@@ -82,6 +76,103 @@
         const box = document.getElementById('paToggle');
         if (box) box.checked = paOn;
     }
+
+    (function () {
+        const LOG_PREFIX = '[OakFix]';
+        const desiredMode = 'ALL';
+        function runOakFix() {
+            const O = App?.game?.oakItems;
+            if (!O) return false;
+            const total = Array.isArray(O.itemList) ? O.itemList.length : (O.itemList?.length ?? 0);
+            if (!total) return false;
+            try {
+                for (let i = 0; i < total; i++) O.unlockRequirements[i] = 0;
+            } catch (e) { console.warn(LOG_PREFIX, 'unlockRequirements error', e); }
+            const want = (desiredMode === 'ALL') ? total : Math.max(1, Math.min(Number(desiredMode)||total, total));
+            const readMax = () => {
+                try {
+                    if (ko?.isObservable?.(O.maxActiveCount)) return O.maxActiveCount();
+                    if (typeof O.maxActiveCount === 'function') return O.maxActiveCount();
+                    if (typeof O.maxActiveCount === 'number') return O.maxActiveCount;
+                } catch {}
+                return null;
+            };
+            let wrote = false;
+            try {
+                if (ko?.isObservable?.(O.maxActiveCount)) { O.maxActiveCount(want); wrote = true; }
+                else if (typeof O.maxActiveCount === 'function') {
+                    try { O.maxActiveCount(want); wrote = true; } catch {}
+                } else if (typeof O.maxActiveCount === 'number') {
+                    O.maxActiveCount = want; wrote = true;
+                }
+            } catch (e) {}
+            if (!wrote) {
+                try {
+                    if (typeof O.maxActiveCount === 'function') {
+                        const _orig = O.maxActiveCount;
+                        let _val = want;
+                        O.maxActiveCount = function(v){
+                            if (typeof v === 'number') _val = v;
+                            return _val;
+                        };
+                        wrote = true;
+                    } else {
+                        Object.defineProperty(O, 'maxActiveCount', {
+                            configurable: true,
+                            get(){ return want; },
+                            set(v){},
+                        });
+                        wrote = true;
+                    }
+                } catch (e) {
+                    console.warn(LOG_PREFIX, 'patch maxActiveCount failed', e);
+                }
+            }
+            try {
+                for (let i = 0; i < total; i++) {
+                    const ia = O.isActive?.[i];
+                    const itemIA = O.itemList?.[i]?.isActive;
+                    if (ko?.isObservable?.(ia)) {
+                        ia(true);
+                    } else if (ko?.isObservable?.(itemIA)) {
+                        itemIA(true);
+                    } else if (typeof O.toggleItem === 'function') {
+                        const wasActive = (ia?.() ?? itemIA?.() ?? false);
+                        if (!wasActive) O.toggleItem(i);
+                    }
+                }
+            } catch (e) { console.warn(LOG_PREFIX, 'auto-activate fail', e); }
+            try { O.update?.(); } catch {}
+            try { O.calculateBonus?.(); } catch {}
+            try {
+                const modal = document.getElementById('oakItemsModal');
+                if (modal) {
+                    const h5 = modal.querySelector('h5');
+                    const act = (typeof O.activeCount === 'function') ? O.activeCount() : (O.activeCount?.() ?? 0);
+                    const mx = readMax() ?? want;
+                    if (h5) h5.textContent = `Oak Items Equipped: ${act}/${mx}`;
+                }
+            } catch (e) {
+            return true;
+        }
+        const tryRun = () => {
+            const ok = runOakFix();
+            if (!ok) setTimeout(tryRun, 250);
+        };
+        try {
+            const oldHide = Preload?.hideSplashScreen;
+            if (typeof oldHide === 'function') {
+                Preload.hideSplashScreen = function (...args) {
+                    const r = oldHide.apply(this, args);
+                    setTimeout(tryRun, 0);
+                    return r;
+                };
+            }
+        } catch {}
+        tryRun();
+    })();
+
+
 
     const currencies = [
         { name: "Pokédollars",     method: amount => App.game.wallet.gainMoney(amount) },
@@ -131,7 +222,6 @@
     function normalizeKey(s) {
         return String(s || '').trim().replace(/\s+/g, '_');
     }
-
     function resolveItemKey(inputName) {
         const norm = normalizeKey(inputName).toLowerCase();
         if (itemIndex.has(norm)) return itemIndex.get(norm);
@@ -205,7 +295,7 @@
             <button id="addCustomItem" style="width:100%;">เพิ่มไอเท็ม</button>
 
             <div style="opacity:.7;margin-top:8px;font-size:12px;">
-                กด <b>Insert</b> เพื่อแสดง/ซ่อนเครื่องมือนี้
+                กด <b>Ctrl + Insert</b> เพื่อแสดง/ซ่อนเครื่องมือนี้
             </div>
         `;
 
@@ -286,12 +376,16 @@
         const exists = document.getElementById(CONTAINER_ID);
         if (exists) removeUI();
         else if (gameReady) createUI();
-        else notify("⏳ กำลังโหลดเกม รอสักครู่แล้วกด Insert อีกครั้ง");
+        else notify("⏳ กำลังโหลดเกม รอสักครู่แล้วกด Ctrl + Insert อีกครั้ง");
     }
 
     function notify(msg) {
         if (typeof Notifier !== 'undefined') {
-            Notifier.notify({ message: msg, type: NotificationConstants.NotificationOption.success });
+            try {
+                Notifier.notify({ message: msg, type: NotificationConstants.NotificationOption.success });
+            } catch {
+                console.log(msg);
+            }
         } else {
             console.log(msg);
         }
@@ -300,31 +394,23 @@
     waitForGameLoad(() => {
         buildItemIndex();
         notify(`✅ ${SCRIPT_NAME} v${VERSION} Ready !!`);
-    
-        // เร่งจับโปเกมอน
-        App.game.pokeballs.pokeballs.forEach(ball => {
-            ball.catchTime = 10;
-            console.log(`⚡ Pokéball: ${ball.name || ball.type} → catchTime = ${ball.catchTime}ms`);
-        });
-    
-        // Buff Oak Items และค่าโบนัส
+        App.game.pokeballs.pokeballs.forEach(ball => {ball.catchTime = 10;});
         App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];
         App.game.oakItems.itemList[0].inactiveBonus = 100;
         App.game.multiplier.addBonus('shiny',   () => 10);
         App.game.multiplier.addBonus('roaming', () => 100);
         App.game.multiplier.addBonus('exp',     () => 100);
         App.game.multiplier.addBonus('eggStep', () => 100);
-        [4, 8, 9].forEach(i => { 
-            App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; 
-            App.game.oakItems.itemList[i].inactiveBonus = 100; 
+        [4, 8, 9].forEach(i => {
+            App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100];
+            App.game.oakItems.itemList[i].inactiveBonus = 100;
         });
-        [7,10,11].forEach(i => { 
-            App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; 
-            App.game.oakItems.itemList[i].inactiveBonus = 999999; 
+        [7,10,11].forEach(i => {
+            App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999];
+            App.game.oakItems.itemList[i].inactiveBonus = 999999;
         });
         BerryMutations.mutationChance = 100;
-    
-        // เร่ง Battle Frontier
+        applyOakSlots(OAK_SLOTS_LIMIT);
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
             BattleFrontierBattle.pokemonAttack = function () {
@@ -337,7 +423,6 @@
                 if (!enemy.isAlive()) this.defeatPokemon();
             };
         }
-    
         setAutoClick(true);
         setFastPokemonAttack(true);
     });
