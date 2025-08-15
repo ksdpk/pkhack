@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.5"; // ตัดสถิติคลิกออก เพื่อลดการกิน CPU
+    const VERSION = "1.6.6"; // ตัดสถิติคลิกออก เพื่อลดการกิน CPU
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -345,7 +345,7 @@
     document.addEventListener('keydown', (e) => {
         const tag = e.target?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea') return;
-        if (e.code === 'Insert') {
+        if (e.code === 'Insert' && e.ctrlKey) {
             e.preventDefault();
             toggleUI();
         }
