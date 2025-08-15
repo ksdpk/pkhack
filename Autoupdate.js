@@ -2,14 +2,13 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.5.0"; // เพิ่ม เสกโปเกมอนด้วยจุดทศนิยม
+    const VERSION = "1.5.1"; // Change Rate
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
-    // ---------- Auto Click (minimal) ----------
-    const AC_TICKS_PER_SEC = 100;   // เรียก loop 100 ครั้ง/วินาที
-    const AC_MULTIPLIER    = 5;     // คลิกครั้งละ 5 → เป้าหมาย = 100/s
+    const AC_TICKS_PER_SEC = 100;
+    const AC_MULTIPLIER    = 5;
     const AC_TARGET_RATE   = AC_TICKS_PER_SEC * AC_MULTIPLIER;
 
     let acOn = JSON.parse(localStorage.getItem('acOn') || 'false');
@@ -18,12 +17,10 @@
     let lastClicksCount = 0;
 
     function startAutoClick() {
-        stopAutoClick(); // กันซ้ำ
-        // loop ยิงคลิก
+        stopAutoClick();
         acLoop = setInterval(() => {
             if (!acOn) return;
             const state = App.game.gameState;
-            // ยิงคลิกตามสถานะต่อสู้ปัจจุบัน
             if (state === GameConstants.GameState.fighting) {
                 for (let i = 0; i < AC_MULTIPLIER; i++) Battle.clickAttack();
             } else if (state === GameConstants.GameState.gym) {
@@ -35,7 +32,6 @@
             }
         }, Math.ceil(1000 / AC_TICKS_PER_SEC));
 
-        // loop คำนวณคลิกจริง/วินาที
         lastClicksCount = App.game.statistics.clickAttacks();
         acStatsLoop = setInterval(() => {
             const nowClicks = App.game.statistics.clickAttacks();
@@ -59,10 +55,8 @@
         if (box) box.checked = acOn;
     }
 
-    // ---------- Fast Pokémon Attack (ไม่แก้ constant) ----------
-    // ยิง pokemonAttack() เองถี่ ๆ ตามโหมดการสู้ เพื่อลด "ระยะเวลาโจมตีอัตโนมัติ"
-    const PA_INTERVAL_MS = 10; // 10ms ≈ 100 ครั้ง/วินาที (ระวัง CPU)
-    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'false'); // ปิดค่าเริ่มต้น
+    const PA_INTERVAL_MS = 10;
+    let paOn   = JSON.parse(localStorage.getItem('paOn') || 'false');
     let paLoop = null;
 
     function startFastPokemonAttack() {
@@ -71,7 +65,6 @@
             if (!paOn) return;
             const state = App.game.gameState;
 
-            // ตรวจว่าในแต่ละโหมด "กำลังสู้" อยู่ และมีศัตรู
             if (state === GameConstants.GameState.fighting) {
                 const enemy = Battle.enemyPokemon?.();
                 if (enemy?.isAlive?.()) Battle.pokemonAttack();
@@ -85,7 +78,6 @@
                 const enemy = TemporaryBattleBattle.enemyPokemon?.();
                 if (TemporaryBattleRunner?.running?.() && enemy?.isAlive?.()) TemporaryBattleBattle.pokemonAttack();
             } else if (state === GameConstants.GameState.battleFrontier) {
-                // จะเร็วจริงต้องใช้แพตช์ปลดลิมิต 450ms ข้างล่าง
                 const enemy = BattleFrontierBattle?.enemyPokemon?.();
                 if (BattleFrontierRunner?.started?.() && enemy?.isAlive?.()) BattleFrontierBattle.pokemonAttack();
             }
@@ -104,7 +96,6 @@
         if (box) box.checked = paOn;
     }
 
-    // ---------- รายการเงิน/แต้ม ----------
     const currencies = [
         { name: "Pokédollars",     method: amount => App.game.wallet.gainMoney(amount) },
         { name: "Dungeon Tokens",  method: amount => App.game.wallet.gainDungeonTokens(amount) },
@@ -115,7 +106,6 @@
         { name: "Contest Tokens",  method: amount => App.game.wallet.gainContestTokens(amount) },
     ];
 
-    // ---------- โหลดเกม ----------
     function waitForGameLoad(onReady) {
         const t = setInterval(() => {
             if (
@@ -133,7 +123,6 @@
         }, 500);
     }
 
-    // ---------- ค้นหาชื่อไอเท็ม ----------
     let itemIndex = new Map();
     let itemListReady = false;
 
@@ -163,7 +152,6 @@
         return null;
     }
 
-    // ---------- UI ----------
     function createUI() {
         const existing = document.getElementById(CONTAINER_ID);
         if (existing) return existing;
@@ -239,7 +227,6 @@
         container.innerHTML = html;
         document.body.appendChild(container);
 
-        // เติม datalist
         if (itemListReady) {
             const dl = document.getElementById('itemNameInputList');
             if (dl) {
@@ -253,10 +240,9 @@
             }
         }
 
-        // Spawner
         document.getElementById("spawnPokemon").addEventListener("click", () => {
             const idInput = document.getElementById("pokeId").value;
-            const id = parseFloat(idInput); // รองรับทศนิยม
+            const id = parseFloat(idInput);
             const shiny = document.getElementById("pokeShiny").checked;
         
             if (id >= 1 && id <= 898.99) {
@@ -268,7 +254,6 @@
             }
         });
 
-        // Currency
         document.getElementById("addCurrency").addEventListener("click", () => {
             const sel = document.getElementById("currencySelect");
             const idx = parseInt(sel.value) || 0;
@@ -280,7 +265,6 @@
             }
         });
 
-        // Custom item
         const customNameEl = document.getElementById("customItemName");
         const customAmtEl  = document.getElementById("customItemAmount");
         const addCustomBtn = document.getElementById("addCustomItem");
@@ -297,17 +281,14 @@
         customNameEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
         customAmtEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
 
-        // Auto Click toggle
         const acToggle = document.getElementById('acToggle');
         acToggle.checked = acOn;
         acToggle.addEventListener('change', () => setAutoClick(acToggle.checked));
 
-        // Fast Pokémon Attack toggle
         const paToggle = document.getElementById('paToggle');
         paToggle.checked = paOn;
         paToggle.addEventListener('change', () => setFastPokemonAttack(paToggle.checked));
 
-        // ถ้า UI เปิดหลังเกมพร้อมและเคยเปิดไว้ → เดินเครื่องเลย
         if (acOn) setAutoClick(true);
         if (paOn) setFastPokemonAttack(true);
 
@@ -353,14 +334,11 @@
         }
     }
 
-    // ---------- Boot ----------
     waitForGameLoad(() => {
         buildItemIndex();
 
-        // แจ้งเตือนพร้อมใช้งาน
-        notify(`✅ ${SCRIPT_NAME} v${VERSION} พร้อมใช้งาน — กด Insert เพื่อเปิด/ปิด`);
+        notify(`✅ ${SCRIPT_NAME} v${VERSION} Ready !!`);
 
-        // ทวีคเดิมของคุณ
         App.game.pokeballs.pokeballs.forEach(ball => {
             ball.catchTime = 10;
             console.log(`⚡ Pokéball: ${ball.name || ball.type} → catchTime = ${ball.catchTime}ms`);
@@ -374,11 +352,9 @@
         [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
 
-        // ถ้าไม่ได้เปิด UI แต่ต้องการให้ Auto Click/PA ทำงานต่อเนื่องตามสถานะเดิม:
         if (acOn) setAutoClick(true);
         if (paOn) setFastPokemonAttack(true);
 
-        // --- ปลดลิมิต 450ms ของ Battle Frontier เพื่อให้ Fast Pokémon Attack เร็วจริง ---
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
             BattleFrontierBattle.pokemonAttack = function () {
@@ -391,7 +367,6 @@
         }
     });
 
-    // Hotkey แค่เปิด/ปิด UI (ตามเดิม)
     document.addEventListener('keydown', (e) => {
         const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
         if (tag === 'input' || tag === 'textarea') return;
