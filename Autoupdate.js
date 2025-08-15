@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.1"; // เปิดใช้งาน Auto Fast Attack Click/Pokemon
+    const VERSION = "1.6.2"; // แก้ Auto Fast Attack Pokemon
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -353,8 +353,10 @@
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
         BerryMutations.mutationChance = 100;
 
-        setAutoClick(true);
-        setFastPokemonAttack(true);
+        //setAutoClick(true);
+        //setFastPokemonAttack(true);
+        if (acOn) setAutoClick(true);
+        if (paOn) setFastPokemonAttack(true);
 
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
