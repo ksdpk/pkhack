@@ -2,19 +2,16 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.4"; // เพิ่ม On Fast Click/Pokemon
+    const VERSION = "1.6.5"; // ตัดสถิติคลิกออก เพื่อลดการกิน CPU
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
 
     const AC_TICKS_PER_SEC = 100;
     const AC_MULTIPLIER    = 5;
-    const AC_TARGET_RATE   = AC_TICKS_PER_SEC * AC_MULTIPLIER;
 
     let acOn = JSON.parse(localStorage.getItem('acOn') || 'false');
     let acLoop = null;
-    let acStatsLoop = null;
-    let lastClicksCount = 0;
 
     function startAutoClick() {
         stopAutoClick();
@@ -31,20 +28,10 @@
                 for (let i = 0; i < AC_MULTIPLIER; i++) TemporaryBattleBattle.clickAttack();
             }
         }, Math.ceil(1000 / AC_TICKS_PER_SEC));
-
-        lastClicksCount = App.game.statistics.clickAttacks();
-        acStatsLoop = setInterval(() => {
-            const nowClicks = App.game.statistics.clickAttacks();
-            const diff = nowClicks - lastClicksCount;
-            lastClicksCount = nowClicks;
-            const el = document.getElementById('acActual');
-            if (el) el.textContent = diff.toLocaleString('en-US', { maximumFractionDigits: 1 });
-        }, 1000);
     }
 
     function stopAutoClick() {
         if (acLoop) clearInterval(acLoop), acLoop = null;
-        if (acStatsLoop) clearInterval(acStatsLoop), acStatsLoop = null;
     }
 
     function setAutoClick(on) {
@@ -202,18 +189,16 @@
             <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:6px;">
                 <input type="checkbox" id="acToggle"> เปิดใช้งาน Auto Click
             </label>
-            <div style="opacity:.9;margin-bottom:2px;">Click Attack Rate (target): <b>${AC_TARGET_RATE}/s</b></div>
-            <div>Clicks/s (actual): <b id="acActual">-</b></div>
 
             <h4 style="margin:10px 0 5px 0;font-size:16px;">⚡ Fast Pokémon Attack</h4>
             <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:6px;">
                 <input type="checkbox" id="paToggle"> เปิดใช้งาน Fast Pokémon Attack
             </label>
-            <div style="opacity:.8;">Interval: <b>${PA_INTERVAL_MS} ms</b> (ยิ่งต่ำยิ่งเร็ว แต่กิน CPU)</div>
+            <div style="opacity:.8;">Interval: <b>${PA_INTERVAL_MS} ms</b></div>
 
             <h4 style="margin:10px 0 5px 0;font-size:16px;">📦 ไอเท็มอื่น ๆ</h4>
-            <label>พิมพ์ชื่อไอเท็ม (auto-complete):</label>
-            <input id="customItemName" list="itemNameInputList" placeholder="เช่น Rare Candy หรือ Rare_Candy" style="width:100%;margin-bottom:5px;">
+            <label>พิมพ์ชื่อไอเท็ม:</label>
+            <input id="customItemName" list="itemNameInputList" placeholder="เช่น Rare Candy" style="width:100%;margin-bottom:5px;">
             <datalist id="itemNameInputList"></datalist>
             <label>จำนวน:</label>
             <input type="number" id="customItemAmount" value="1" min="1" style="width:100%;margin-bottom:5px;">
@@ -229,22 +214,18 @@
 
         if (itemListReady) {
             const dl = document.getElementById('itemNameInputList');
-            if (dl) {
-                dl.innerHTML = '';
-                const allKeys = Array.from(itemIndex.values()).sort();
-                for (const k of allKeys) {
-                    const opt = document.createElement('option');
-                    opt.value = k.replace(/_/g, ' ');
-                    dl.appendChild(opt);
-                }
+            dl.innerHTML = '';
+            const allKeys = Array.from(itemIndex.values()).sort();
+            for (const k of allKeys) {
+                const opt = document.createElement('option');
+                opt.value = k.replace(/_/g, ' ');
+                dl.appendChild(opt);
             }
         }
 
         document.getElementById("spawnPokemon").addEventListener("click", () => {
-            const idInput = document.getElementById("pokeId").value;
-            const id = parseFloat(idInput);
+            const id = parseFloat(document.getElementById("pokeId").value);
             const shiny = document.getElementById("pokeShiny").checked;
-        
             if (id >= 1 && id <= 898.99) {
                 App.game.party.gainPokemonById(id, shiny);
                 const name = PokemonHelper.getPokemonById(id)?.name || 'Unknown';
@@ -255,8 +236,7 @@
         });
 
         document.getElementById("addCurrency").addEventListener("click", () => {
-            const sel = document.getElementById("currencySelect");
-            const idx = parseInt(sel.value) || 0;
+            const idx = parseInt(document.getElementById("currencySelect").value) || 0;
             const c = currencies[idx];
             const amount = parseInt(document.getElementById("currencyAmount").value) || 0;
             if (amount > 0) {
@@ -265,21 +245,13 @@
             }
         });
 
-        const customNameEl = document.getElementById("customItemName");
-        const customAmtEl  = document.getElementById("customItemAmount");
-        const addCustomBtn = document.getElementById("addCustomItem");
-        function addCustom() {
-            const itemName = (customNameEl.value || '').trim();
-            const amount = parseInt(customAmtEl.value) || 1;
-            if (!itemName) {
-                notify("⚠️ ใส่ชื่อไอเท็มก่อนนะ");
-                return;
-            }
+        const addCustom = () => {
+            const itemName = (document.getElementById("customItemName").value || '').trim();
+            const amount = parseInt(document.getElementById("customItemAmount").value) || 1;
+            if (!itemName) return notify("⚠️ ใส่ชื่อไอเท็มก่อน");
             gainItemByName(itemName, amount, "📦");
-        }
-        addCustomBtn.addEventListener("click", addCustom);
-        customNameEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
-        customAmtEl.addEventListener("keydown", (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+        };
+        document.getElementById("addCustomItem").addEventListener("click", addCustom);
 
         const acToggle = document.getElementById('acToggle');
         acToggle.checked = acOn;
@@ -297,7 +269,7 @@
 
     function gainItemByName(inputName, amount, icon = "🎁") {
         const key = resolveItemKey(inputName);
-        if (key && ItemList[key] && typeof ItemList[key].gain === 'function') {
+        if (key && ItemList[key]?.gain) {
             ItemList[key].gain(amount);
             notify(`${icon} เพิ่ม ${key.replace(/_/g, ' ')} ×${amount}`);
         } else {
@@ -307,28 +279,19 @@
 
     function removeUI() {
         const el = document.getElementById(CONTAINER_ID);
-        if (el && el.parentNode) el.parentNode.removeChild(el);
+        if (el) el.remove();
     }
 
     function toggleUI() {
         const exists = document.getElementById(CONTAINER_ID);
-        if (exists) {
-            removeUI();
-        } else {
-            if (!gameReady) {
-                notify("⏳ กำลังโหลดเกม รอสักครู่แล้วกด Insert อีกครั้ง");
-                return;
-            }
-            createUI();
-        }
+        if (exists) removeUI();
+        else if (gameReady) createUI();
+        else notify("⏳ กำลังโหลดเกม รอสักครู่แล้วกด Insert อีกครั้ง");
     }
 
     function notify(msg) {
         if (typeof Notifier !== 'undefined') {
-            Notifier.notify({
-                message: msg,
-                type: NotificationConstants.NotificationOption.success
-            });
+            Notifier.notify({ message: msg, type: NotificationConstants.NotificationOption.success });
         } else {
             console.log(msg);
         }
@@ -336,42 +299,53 @@
 
     waitForGameLoad(() => {
         buildItemIndex();
-
         notify(`✅ ${SCRIPT_NAME} v${VERSION} Ready !!`);
-
+    
+        // เร่งจับโปเกมอน
         App.game.pokeballs.pokeballs.forEach(ball => {
             ball.catchTime = 10;
             console.log(`⚡ Pokéball: ${ball.name || ball.type} → catchTime = ${ball.catchTime}ms`);
         });
+    
+        // Buff Oak Items และค่าโบนัส
         App.game.oakItems.itemList[0].bonusList = [100, 100, 100, 100, 100, 100];
         App.game.oakItems.itemList[0].inactiveBonus = 100;
         App.game.multiplier.addBonus('shiny',   () => 10);
         App.game.multiplier.addBonus('roaming', () => 100);
         App.game.multiplier.addBonus('exp',     () => 100);
         App.game.multiplier.addBonus('eggStep', () => 100);
-        [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
-        [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
+        [4, 8, 9].forEach(i => { 
+            App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; 
+            App.game.oakItems.itemList[i].inactiveBonus = 100; 
+        });
+        [7,10,11].forEach(i => { 
+            App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; 
+            App.game.oakItems.itemList[i].inactiveBonus = 999999; 
+        });
         BerryMutations.mutationChance = 100;
-
-        setAutoClick(true);
-        setFastPokemonAttack(true);
-
+    
+        // เร่ง Battle Frontier
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
             BattleFrontierBattle.pokemonAttack = function () {
                 const enemy = this.enemyPokemon?.();
                 if (!enemy?.isAlive()) return;
                 const weather = (typeof WeatherType !== 'undefined') ? WeatherType.Clear : 0;
-                enemy.damage(App.game.party.calculatePokemonAttack(enemy.type1, enemy.type2, true, GameConstants.Region.none, false, false, weather));
+                enemy.damage(App.game.party.calculatePokemonAttack(
+                    enemy.type1, enemy.type2, true, GameConstants.Region.none, false, false, weather
+                ));
                 if (!enemy.isAlive()) this.defeatPokemon();
             };
         }
+    
+        setAutoClick(true);
+        setFastPokemonAttack(true);
     });
 
     document.addEventListener('keydown', (e) => {
-        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        const tag = e.target?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea') return;
-        if (e.key === 'Insert' || e.code === 'Insert' || e.keyCode === 45) {
+        if (e.code === 'Insert') {
             e.preventDefault();
             toggleUI();
         }
