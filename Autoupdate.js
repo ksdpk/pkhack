@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.5.1"; // Change Rate
+    const VERSION = "1.6.0"; // เพิ่มเรทการกลายพันธุ์เบอรี่
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -351,6 +351,7 @@
         App.game.multiplier.addBonus('eggStep', () => 100);
         [4, 8, 9].forEach(i => { App.game.oakItems.itemList[i].bonusList = [100,100,100,100,100,100]; App.game.oakItems.itemList[i].inactiveBonus = 100; });
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
+        BerryMutations.mutationChance = 100;
 
         if (acOn) setAutoClick(true);
         if (paOn) setFastPokemonAttack(true);
