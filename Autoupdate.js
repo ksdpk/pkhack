@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.3"; // เพิ่ม localStorage On Click/Pokemon
+    const VERSION = "1.6.4"; // เพิ่ม On Fast Click/Pokemon
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -353,12 +353,8 @@
         [7,10,11].forEach(i => { App.game.oakItems.itemList[i].bonusList = [999999,999999,999999,999999,999999,999999]; App.game.oakItems.itemList[i].inactiveBonus = 999999; });
         BerryMutations.mutationChance = 100;
 
-        //setAutoClick(true);
-        //setFastPokemonAttack(true);
-        localStorage.setItem('acOn', 'true');
-        localStorage.setItem('paOn', 'true');
-        if (acOn) setAutoClick(true);
-        if (paOn) setFastPokemonAttack(true);
+        setAutoClick(true);
+        setFastPokemonAttack(true);
 
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
