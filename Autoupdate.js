@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.6.2"; // แก้ Auto Fast Attack Pokemon
+    const VERSION = "1.6.3"; // เพิ่ม localStorage On Click/Pokemon
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -355,6 +355,8 @@
 
         //setAutoClick(true);
         //setFastPokemonAttack(true);
+        localStorage.setItem('acOn', 'true');
+        localStorage.setItem('paOn', 'true');
         if (acOn) setAutoClick(true);
         if (paOn) setFastPokemonAttack(true);
 
