@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.7.1"; // Add Oak Items Unlimited
+    const VERSION = "1.7.2"; // Add Oak Items Unlimited (FIX)
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -80,15 +80,20 @@
     (function () {
         const LOG_PREFIX = '[OakFix]';
         const desiredMode = 'ALL';
+    
         function runOakFix() {
             const O = App?.game?.oakItems;
             if (!O) return false;
+    
             const total = Array.isArray(O.itemList) ? O.itemList.length : (O.itemList?.length ?? 0);
             if (!total) return false;
+    
             try {
                 for (let i = 0; i < total; i++) O.unlockRequirements[i] = 0;
             } catch (e) { console.warn(LOG_PREFIX, 'unlockRequirements error', e); }
-            const want = (desiredMode === 'ALL') ? total : Math.max(1, Math.min(Number(desiredMode)||total, total));
+    
+            const want = (desiredMode === 'ALL') ? total : Math.max(1, Math.min(Number(desiredMode) || total, total));
+    
             const readMax = () => {
                 try {
                     if (ko?.isObservable?.(O.maxActiveCount)) return O.maxActiveCount();
@@ -97,19 +102,17 @@
                 } catch {}
                 return null;
             };
+    
             let wrote = false;
             try {
                 if (ko?.isObservable?.(O.maxActiveCount)) { O.maxActiveCount(want); wrote = true; }
-                else if (typeof O.maxActiveCount === 'function') {
-                    try { O.maxActiveCount(want); wrote = true; } catch {}
-                } else if (typeof O.maxActiveCount === 'number') {
-                    O.maxActiveCount = want; wrote = true;
-                }
+                else if (typeof O.maxActiveCount === 'function') { try { O.maxActiveCount(want); wrote = true; } catch {} }
+                else if (typeof O.maxActiveCount === 'number') { O.maxActiveCount = want; wrote = true; }
             } catch (e) {}
+    
             if (!wrote) {
                 try {
                     if (typeof O.maxActiveCount === 'function') {
-                        const _orig = O.maxActiveCount;
                         let _val = want;
                         O.maxActiveCount = function(v){
                             if (typeof v === 'number') _val = v;
@@ -128,6 +131,7 @@
                     console.warn(LOG_PREFIX, 'patch maxActiveCount failed', e);
                 }
             }
+    
             try {
                 for (let i = 0; i < total; i++) {
                     const ia = O.isActive?.[i];
@@ -142,8 +146,10 @@
                     }
                 }
             } catch (e) { console.warn(LOG_PREFIX, 'auto-activate fail', e); }
+    
             try { O.update?.(); } catch {}
             try { O.calculateBonus?.(); } catch {}
+    
             try {
                 const modal = document.getElementById('oakItemsModal');
                 if (modal) {
@@ -152,13 +158,16 @@
                     const mx = readMax() ?? want;
                     if (h5) h5.textContent = `Oak Items Equipped: ${act}/${mx}`;
                 }
-            } catch (e) {
+            } catch (e) {}
+    
             return true;
         }
+    
         const tryRun = () => {
             const ok = runOakFix();
             if (!ok) setTimeout(tryRun, 250);
         };
+    
         try {
             const oldHide = Preload?.hideSplashScreen;
             if (typeof oldHide === 'function') {
@@ -169,10 +178,9 @@
                 };
             }
         } catch {}
+    
         tryRun();
     })();
-
-
 
     const currencies = [
         { name: "Pokédollars",     method: amount => App.game.wallet.gainMoney(amount) },
@@ -410,7 +418,6 @@
             App.game.oakItems.itemList[i].inactiveBonus = 999999;
         });
         BerryMutations.mutationChance = 100;
-        applyOakSlots(OAK_SLOTS_LIMIT);
         if (typeof BattleFrontierBattle !== 'undefined') {
             BattleFrontierBattle._origPokemonAttack = BattleFrontierBattle.pokemonAttack;
             BattleFrontierBattle.pokemonAttack = function () {
