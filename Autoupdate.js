@@ -2,7 +2,7 @@
     'use strict';
 
     const SCRIPT_NAME = "Pokéclicker Helper";
-    const VERSION = "1.7.3"; // Add Max Level Oak Items
+    const VERSION = "1.7.4"; // Add Remove Pokemon MissingNo
 
     const CONTAINER_ID = "poke-helper-container";
     let gameReady = false;
@@ -439,6 +439,7 @@
                 if (!enemy.isAlive()) this.defeatPokemon();
             };
         }
+        App.game.party.removePokemonByName("MissingNo.");
         setAutoClick(true);
         setFastPokemonAttack(true);
     });
